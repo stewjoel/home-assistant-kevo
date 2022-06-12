@@ -53,7 +53,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             try:
                 if kevo is None:
                     kevo = KevoLock.FromLockID(lock_id, email, password)
-                else
+                else:
                     kevo.Refresh()				
             except:
                 if attempt == max_retries - 1:
