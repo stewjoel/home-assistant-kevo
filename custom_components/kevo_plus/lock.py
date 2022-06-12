@@ -83,6 +83,11 @@ class KevoDevice(LockEntity):
     def is_locked(self):
         """Return true if lock is locked."""
         return self._state == STATE_LOCKED
+		
+    @property
+    def unique_id(self):
+        """The unique ID of the lock."""
+        return self._kevo.lockID
 
     def lock(self, **kwargs):
         """Instruct the lock to lock."""
