@@ -49,9 +49,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         max_retries = lock[CONF_MAX_RETRIES]
         retry_delay = lock[CONF_RETRY_DELAY]
         
+		kevo = None
         for attempt in range(max_retries):
             try:
-                kevo = None
                 if kevo is None:
                     kevo = KevoLock.FromLockID(lock_id, email, password)
                 else:
