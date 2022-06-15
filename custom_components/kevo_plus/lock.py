@@ -72,7 +72,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             else:
                 break
         
-        add_devices([KevoDevice(kev, hass)])
+        add_devices([KevoDevice(kevo, hass)])
 
 class KevoDevice(LockEntity):
     """Representation of a Kevo Lock."""
