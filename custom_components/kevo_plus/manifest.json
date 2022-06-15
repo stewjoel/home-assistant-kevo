@@ -5,5 +5,5 @@
   "dependencies": [],
   "codeowners": ["gauvingingras","bahnburner","gaggle331","plmilord","davidlang42","dcmeglio"],
   "requirements": ["pykevoplus @ git+https://github.com/dcmeglio/pykevoplus.git"],
-  "version": "0.0.5"
+  "version": "0.0.6"
 }
