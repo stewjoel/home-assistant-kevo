@@ -8,10 +8,15 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, STATE_LOCKED
 import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
-CONF_LOCKS = "locks"
-CONF_LOCK_ID = "lock_id"
-CONF_MAX_RETRIES = "max_retries"
-CONF_RETRY_DELAY = "retry_delay"
+
+
+from .const import (
+    CONF_LOCKS,
+    CONF_LOCK_ID,
+    CONF_MAX_RETRIES,
+    CONF_RETRY_DELAY,
+    DOMAIN
+)
 
 # Validation of the user's configuration
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -31,7 +36,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the Kevo platform."""
-    from pykevoplus import KevoLock
+    from pykevoplus import KevoLock, Kevo
 
     # Assign configuration variables. The configuration check takes care they are
     # present.
@@ -44,6 +49,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     # add_devices(KevoDevice(kevo) for kevo in kevos)
 
     # Setup manual connection with specified device
+    cookie = Kevo.Login(email, password)
+    hass.data[DOMAIN] = { COOKIE: cookie }
     for lock in locks:
         lock_id = lock[CONF_LOCK_ID]
         max_retries = lock[CONF_MAX_RETRIES]
@@ -53,7 +60,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         for attempt in range(max_retries):
             try:
                 if kevo is None:
-                    kevo = KevoLock.FromLockID(lock_id, email, password)
+                    kevo = KevoLock.FromLockIDWithCookie(lock_id, email, password, cookie)
                 else:
                     kevo.Refresh()				
             except:
@@ -64,16 +71,17 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             else:
                 break
         
-        add_devices([KevoDevice(kevo)])
+        add_devices([KevoDevice(kev, hass)])
 
 class KevoDevice(LockEntity):
     """Representation of a Kevo Lock."""
 
-    def __init__(self, kevo):
+    def __init__(self, kevo, hass):
         """Initialize an Kevo Lock."""
         self._kevo = kevo
         self._name = kevo.name
         self._state = None
+        self._hass = hass
 
     @property
     def name(self):
@@ -104,3 +112,4 @@ class KevoDevice(LockEntity):
         This is the only method that should fetch new data for Home Assistant.
         """
         self._state = self._kevo.GetBoltState().lower()
+        self._hass.data[COOKIE] = self._kevo.cookie
