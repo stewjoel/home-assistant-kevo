@@ -15,7 +15,8 @@ from .const import (
     CONF_LOCK_ID,
     CONF_MAX_RETRIES,
     CONF_RETRY_DELAY,
-    DOMAIN
+    DOMAIN,
+    COOKIE
 )
 
 # Validation of the user's configuration
