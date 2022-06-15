@@ -101,10 +101,12 @@ class KevoDevice(LockEntity):
 
     def lock(self, **kwargs):
         """Instruct the lock to lock."""
+        self._kevo.cookie = self._hass.data[COOKIE]
         self._kevo.Lock()
 
     def unlock(self, **kwargs):
         """Instruct the lock to unlock."""
+        self._kevo.cookie = self._hass.data[COOKIE]
         self._kevo.Unlock()
 
     def update(self):
@@ -112,5 +114,6 @@ class KevoDevice(LockEntity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
+        self._kevo.cookie = self._hass.data[COOKIE]
         self._state = self._kevo.GetBoltState().lower()
         self._hass.data[COOKIE] = self._kevo.cookie
