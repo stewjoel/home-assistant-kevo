@@ -4,6 +4,6 @@
   "documentation": "https://github.com/gauvingingras/kevo_plus",
   "dependencies": [],
   "codeowners": ["gauvingingras","bahnburner","gaggle331","plmilord","davidlang42","dcmeglio"],
-  "requirements": ["pykevoplus @ git+https://github.com/dcmeglio/pykevoplus.git"],
-  "version": "0.0.9"
+  "requirements": ["pykevoplusnew==3.0.0"],
+  "version": "0.1.0"
 }
