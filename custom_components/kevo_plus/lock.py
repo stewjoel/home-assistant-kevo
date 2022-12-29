@@ -1,116 +1,71 @@
-import logging
-import time
-import voluptuous as vol
-
-# Import the device class from the component that you want to support
-from homeassistant.components.lock import LockEntity, PLATFORM_SCHEMA
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, STATE_LOCKED
-import homeassistant.helpers.config_validation as cv
-
-_LOGGER = logging.getLogger(__name__)
+from typing import Any
+from homeassistant.components.lock import LockEntity
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from . import KevoCoordinator
+from homeassistant.core import HomeAssistant, callback
+from .const import DOMAIN, MODEL
+from aiokevoplus import KevoAuthError
 
 
-from .const import (
-    CONF_LOCKS,
-    CONF_LOCK_ID,
-    CONF_MAX_RETRIES,
-    CONF_RETRY_DELAY,
-    DOMAIN,
-    COOKIE
-)
+async def async_setup_entry(hass: HomeAssistant, config, add_entities):
+    coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
-# Validation of the user's configuration
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_EMAIL): cv.string,
-    vol.Required(CONF_PASSWORD): cv.string,
-    vol.Required(CONF_LOCKS): vol.All(
-        cv.ensure_list,
-        [
-            {
-                vol.Required(CONF_LOCK_ID): cv.string,
-                vol.Optional(CONF_MAX_RETRIES, default=3): cv.positive_int,
-                vol.Optional(CONF_RETRY_DELAY, default=2): cv.positive_int
-            }
-        ]
-    )
-})
+    devices = await coordinator.get_devices()
 
-def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup the Kevo platform."""
-    from pykevoplus import KevoLock, Kevo
+    entities = []
+    for lock in devices:
+        entities.append(
+            KevoLockEntity(hass=hass, name="Lock", device=lock, coordinator=coordinator)
+        )
 
-    # Assign configuration variables. The configuration check takes care they are
-    # present.
-    email = config.get(CONF_EMAIL)
-    password = config.get(CONF_PASSWORD)
-    locks = config.get(CONF_LOCKS)
+    add_entities(entities)
 
-    # Setup connection with devices/cloud (broken as of 9 Sep 2019 due to CAPTCHA changes)
-    # kevos = Kevo.GetLocks(email, password)
-    # add_devices(KevoDevice(kevo) for kevo in kevos)
 
-    # Setup manual connection with specified device
-    cookie = Kevo.Login(email, password)
-    hass.data[DOMAIN] = { COOKIE: cookie }
-    for lock in locks:
-        lock_id = lock[CONF_LOCK_ID]
-        max_retries = lock[CONF_MAX_RETRIES]
-        retry_delay = lock[CONF_RETRY_DELAY]
-        
-        kevo = None
-        for attempt in range(max_retries):
-            try:
-                if kevo is None:
-                    kevo = KevoLock.FromLockIDWithCookie(lock_id, email, password, cookie)
-                else:
-                    kevo.Refresh()				
-            except:
-                if attempt == max_retries - 1:
-                    raise
-                else:
-                    time.sleep(retry_delay)
-            else:
-                break
-        
-        add_devices([KevoDevice(kevo, hass)])
-
-class KevoDevice(LockEntity):
-    """Representation of a Kevo Lock."""
-
-    def __init__(self, kevo, hass):
-        """Initialize an Kevo Lock."""
-        self._kevo = kevo
-        self._name = kevo.name
-        self._state = None
+class KevoLockEntity(LockEntity, CoordinatorEntity):
+    def __init__(self, hass, name, device, coordinator):
         self._hass = hass
+        self._device = device
+        self._coordinator: KevoCoordinator = coordinator
 
-    @property
-    def name(self):
-        """Return the display name of this lock."""
-        return self._name
+        device._api.register_callback(self._update_data)
 
-    @property
-    def is_locked(self):
-        """Return true if lock is locked."""
-        return self._state == STATE_LOCKED
-		
-    @property
-    def unique_id(self):
-        """The unique ID of the lock."""
-        return self._kevo.lockID
+        self._attr_name = name
+        # self._attr_device_class = device_class
+        self._attr_has_entity_name = True
 
-    def lock(self, **kwargs):
-        """Instruct the lock to lock."""
-        self._kevo.Lock()
+        self._attr_unique_id = device.lock_id + "_lock"
+        self._attr_is_locked = device.is_locked
+        self._attr_is_jammed = device.is_jammed
+        self._attr_is_locking = device.is_locking
+        self._attr_is_unlocking = device.is_unlocking
 
-    def unlock(self, **kwargs):
-        """Instruct the lock to unlock."""
-        self._kevo.Unlock()
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device.lock_id)},
+            manufacturer=device.brand,
+            name=device.name,
+            model=MODEL,
+            sw_version=device.firmware,
+        )
 
-    def update(self):
-        """Fetch new state data for this lock.
+        super().__init__(coordinator)
 
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        self._state = self._kevo.GetBoltState().lower()
-        self._hass.data[COOKIE] = self._kevo.cookie
+    async def async_lock(self, **kwargs: Any) -> None:
+        try:
+            await self._device.lock()
+        except KevoAuthError:
+            await self._coordinator.entry.async_start_reauth(self._hass)
+
+    async def async_unlock(self, **kwargs: Any) -> None:
+        try:
+            await self._device.unlock()
+        except KevoAuthError:
+            await self._coordinator.entry.async_start_reauth(self._hass)
+
+    @callback
+    def _update_data(self, args):
+        self._attr_is_locked = self._device.is_locked
+        self._attr_is_locking = self._device.is_locking
+        self._attr_is_unlocking = self._device.is_unlocking
+        self._attr_is_jammed = self._device.is_jammed
+        self.schedule_update_ha_state(False)

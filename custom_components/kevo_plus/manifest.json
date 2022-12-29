@@ -1,9 +1,15 @@
 {
   "domain": "kevo_plus",
   "name": "Kevo Plus",
-  "documentation": "https://github.com/gauvingingras/kevo_plus",
+  "documentation": "https://github.com/dcmeglio/home-assistant-kevo",
+  "config_flow": true,
   "dependencies": [],
-  "codeowners": ["gauvingingras","bahnburner","gaggle331","plmilord","davidlang42","dcmeglio"],
-  "requirements": ["pykevoplusnew==3.0.0"],
-  "version": "0.1.0"
+  "codeowners": [
+    "dcmeglio"
+  ],
+  "requirements": [
+    "aiokevoplus==4.0.4"
+  ],
+  "version": "1.0.0",
+  "iot_class": "cloud_push"
 }
