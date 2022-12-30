@@ -1,3 +1,4 @@
+from homeassistant.const import PERCENTAGE
 from .const import DOMAIN, MODEL
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -37,6 +38,7 @@ class KevoSensorEntity(SensorEntity, CoordinatorEntity):
         if device_type == "battery_level":
             self._attr_device_class = "battery"
         self._attr_has_entity_name = True
+        self._attr_native_unit_of_measurement = PERCENTAGE
 
         self._attr_unique_id = device.lock_id + "_" + device_type
 
