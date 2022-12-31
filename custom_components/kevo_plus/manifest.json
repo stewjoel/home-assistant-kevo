@@ -2,6 +2,7 @@
   "domain": "kevo_plus",
   "name": "Kevo Plus",
   "documentation": "https://github.com/dcmeglio/home-assistant-kevo",
+  "issue_tracker": "https://github.com/dcmeglio/home-assistant-kevo/issues",
   "config_flow": true,
   "dependencies": [],
   "codeowners": [
@@ -10,6 +11,6 @@
   "requirements": [
     "aiokevoplus==4.0.4"
   ],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "iot_class": "cloud_push"
 }
