@@ -12,6 +12,7 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from aiokevoplus import KevoApi, KevoAuthError
 
@@ -31,7 +32,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     device_id = uuid.UUID(int=uuid.getnode())
     client = KevoApi(device_id)
-    await client.login(entry.data.get(CONF_USERNAME), entry.data.get(CONF_PASSWORD))
+    try:
+        await client.login(entry.data.get(CONF_USERNAME), entry.data.get(CONF_PASSWORD))
+    except Exception as ex:
+        raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
 
     coordinator = KevoCoordinator(hass, client, entry)
 
