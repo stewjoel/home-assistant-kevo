@@ -2,6 +2,7 @@
 """The Kevo Plus integration."""
 from __future__ import annotations
 import asyncio
+import hashlib
 import uuid
 
 
@@ -30,10 +31,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Kevo Plus from a config entry."""
 
     hass.data.setdefault(DOMAIN, {})
-    device_id = uuid.UUID(int=uuid.getnode())
+    password = entry.data.get(CONF_PASSWORD)
+    device_id = uuid.UUID(bytes=hashlib.md5(password.encode()).digest())
     client = KevoApi(device_id)
+
     try:
-        await client.login(entry.data.get(CONF_USERNAME), entry.data.get(CONF_PASSWORD))
+        await client.login(entry.data.get(CONF_USERNAME), password)
     except Exception as ex:
         raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
 

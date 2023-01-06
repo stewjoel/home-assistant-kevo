@@ -10,6 +10,7 @@
 - Kevo Plus bluetooth enabled gateway
 - Reference : https://www.weiserlock.com/en/kevo/smart-lock
 - Opt into the new Kevo login on mykevo.com
+- A username on mykevo.com that has Admin eKeys to the locks you want to control
 
 ## Note
 

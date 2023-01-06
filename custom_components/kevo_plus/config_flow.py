@@ -1,5 +1,6 @@
 """Config flow for Kevo Plus integration."""
 from __future__ import annotations
+import hashlib
 
 import logging
 from homeassistant.const import CONF_USERNAME
@@ -29,8 +30,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         self.data: dict = {}
 
-        device_id = uuid.UUID(int=uuid.getnode())
-        self._api = KevoApi(device_id)
+        device_id = None
+        self._api: KevoApi = None
         self._locks = None
 
     VERSION = 1
@@ -52,6 +53,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         try:
+            device_id = uuid.UUID(
+                bytes=hashlib.md5(user_input["password"].encode()).digest()
+            )
+            self._api = KevoApi(device_id)
+
             await self._api.login(user_input["username"], user_input["password"])
             self._locks = {dev.lock_id: dev.name for dev in await self._api.get_locks()}
             self.data = user_input
