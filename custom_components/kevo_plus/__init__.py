@@ -41,6 +41,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
 
     coordinator = KevoCoordinator(hass, client, entry)
+    try:
+        await coordinator.get_devices()
+    except Exception as ex:
+        raise ConfigEntryNotReady("Failed to get Kevo devices") from ex
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -53,6 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        await hass.data[DOMAIN][entry.entry_id].api.websocket_close()
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok

@@ -66,6 +66,9 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
         except KevoAuthError:
             await self._coordinator.entry.async_start_reauth(self._hass)
 
+    async def async_will_remove_from_hass(self) -> None:
+        self._device._api.unregister_callback(self._update_data)
+
     @callback
     def _update_data(self, args):
         self._attr_is_locked = self._device.is_locked

@@ -9,8 +9,8 @@
     "dcmeglio"
   ],
   "requirements": [
-    "aiokevoplus==4.1.1"
+    "aiokevoplus==4.2.0"
   ],
-  "version": "1.1.0",
+  "version": "1.2.0",
   "iot_class": "cloud_push"
 }
