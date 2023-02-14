@@ -1,3 +1,4 @@
+"""Support for Kevo Plus lock sensors."""
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE

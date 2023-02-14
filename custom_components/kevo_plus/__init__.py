@@ -1,4 +1,3 @@
-# Kevo lock integration
 """The Kevo Plus integration."""
 from __future__ import annotations
 

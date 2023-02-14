@@ -1,3 +1,4 @@
+"""Support for Kevo Plus locks."""
 from typing import Any
 
 from aiokevoplus import KevoAuthError
