@@ -6,6 +6,8 @@ import logging
 import uuid
 from typing import Any
 
+from httpx import ConnectError
+
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from aiokevoplus import KevoApi, KevoAuthError
@@ -65,6 +67,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_devices()
         except KevoAuthError:
             errors["base"] = "invalid_auth"
+        except ConnectError:
+            errors["base"] = "cannot_connect"
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected exception")
             errors["base"] = "unknown"
