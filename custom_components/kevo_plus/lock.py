@@ -1,12 +1,14 @@
 from typing import Any
+
+from aiokevoplus import KevoAuthError
 from homeassistant.components.lock import LockEntity
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from . import KevoCoordinator
-from homeassistant.core import HomeAssistant, callback
 from .const import DOMAIN, MODEL
-from aiokevoplus import KevoAuthError
 
 
 async def async_setup_entry(hass: HomeAssistant, config, add_entities):

@@ -1,10 +1,11 @@
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import PERCENTAGE
-from .const import DOMAIN, MODEL
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from . import KevoCoordinator
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.components.sensor import SensorEntity
+from .const import DOMAIN, MODEL
 
 
 async def async_setup_entry(hass: HomeAssistant, config, add_entities):
