@@ -6,14 +6,13 @@ import logging
 import uuid
 from typing import Any
 
-from httpx import ConnectError
-
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from aiokevoplus import KevoApi, KevoAuthError
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResult
+from httpx import ConnectError
 
 from .const import DOMAIN
 
