@@ -10,7 +10,7 @@ from aiokevoplus import KevoApi, KevoAuthError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import DOMAIN
@@ -30,14 +30,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await client.login(entry.data.get(CONF_USERNAME), password)
+    except KevoAuthError as auth_ex:
+        raise ConfigEntryAuthFailed("Invalid credentials") from auth_ex
     except Exception as ex:
-        raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
+        raise ConfigEntryNotReady("Error connecting to Kevo server: %s", ex) from ex
 
     coordinator = KevoCoordinator(hass, client, entry)
     try:
         await coordinator.get_devices()
     except Exception as ex:
-        raise ConfigEntryNotReady("Failed to get Kevo devices") from ex
+        raise ConfigEntryNotReady("Failed to get Kevo devices: %s", ex) from ex
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
