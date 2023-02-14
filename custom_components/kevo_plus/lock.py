@@ -2,6 +2,7 @@ from typing import Any
 
 from aiokevoplus import KevoAuthError
 from homeassistant.components.lock import LockEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.entity import DeviceInfo
@@ -11,7 +12,7 @@ from . import KevoCoordinator
 from .const import DOMAIN, MODEL
 
 
-async def async_setup_entry(hass: HomeAssistant, config, add_entities):
+async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
     try:
@@ -29,7 +30,9 @@ async def async_setup_entry(hass: HomeAssistant, config, add_entities):
 
 
 class KevoLockEntity(LockEntity, CoordinatorEntity):
-    def __init__(self, hass, name, device, coordinator):
+    def __init__(
+        self, hass: HomeAssistant, name: str, device, coordinator: KevoCoordinator
+    ) -> None:
         self._hass = hass
         self._device = device
         self._coordinator: KevoCoordinator = coordinator
@@ -37,7 +40,6 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
         device._api.register_callback(self._update_data)
 
         self._attr_name = name
-        # self._attr_device_class = device_class
         self._attr_has_entity_name = True
 
         self._attr_unique_id = device.lock_id + "_lock"

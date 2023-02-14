@@ -58,16 +58,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 class KevoCoordinator(DataUpdateCoordinator):
-    """My custom coordinator."""
+    """Kevo Data Coordinator."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         api: KevoApi,
         entry: ConfigEntry,
-        devices=None,
-    ):
-        """Initialize my coordinator."""
+    ) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
@@ -75,12 +74,13 @@ class KevoCoordinator(DataUpdateCoordinator):
             name="Kevo",
         )
         self.api = api
-        self.hass: HomeAssistant = hass
+        self.hass = hass
         self.entry = entry
         self._devices = None
         self._device_lock = asyncio.Lock()
 
-    async def get_devices(self):
+    async def get_devices(self) -> list:
+        """Retrieve the devices associated with the coordinator."""
         async with self._device_lock:
             if self._devices is None:
                 try:

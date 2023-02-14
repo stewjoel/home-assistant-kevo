@@ -1,4 +1,5 @@
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
@@ -8,7 +9,7 @@ from . import KevoCoordinator
 from .const import DOMAIN, MODEL
 
 
-async def async_setup_entry(hass: HomeAssistant, config, add_entities):
+async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
     devices = await coordinator.get_devices()
@@ -29,7 +30,14 @@ async def async_setup_entry(hass: HomeAssistant, config, add_entities):
 
 
 class KevoSensorEntity(SensorEntity, CoordinatorEntity):
-    def __init__(self, hass, name, device, coordinator, device_type):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        name: str,
+        device,
+        coordinator: KevoCoordinator,
+        device_type: str,
+    ) -> None:
         self._hass = hass
         self._device = device
         self._coordinator = coordinator

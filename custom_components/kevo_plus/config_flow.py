@@ -28,10 +28,9 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Kevo Plus."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.data: dict = {}
 
-        device_id = None
         self._api: KevoApi = None
         self._locks = None
 
@@ -40,6 +39,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
+        """Hande reauthentication step."""
         return await self.async_step_user()
 
     async def async_step_user(
@@ -86,8 +86,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                 ),
             )
-        else:
-            self.data.update(user_input)
-            return self.async_create_entry(
-                title=self.data[CONF_USERNAME], data=self.data
-            )
+
+        self.data.update(user_input)
+        return self.async_create_entry(title=self.data[CONF_USERNAME], data=self.data)
