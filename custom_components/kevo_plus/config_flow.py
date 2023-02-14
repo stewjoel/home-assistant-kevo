@@ -12,7 +12,7 @@ from aiokevoplus import KevoApi, KevoAuthError
 from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResult
-from httpx import ConnectError
+from httpx import ConnectError, ConnectTimeout
 
 from .const import DOMAIN
 
@@ -66,7 +66,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_devices()
         except KevoAuthError:
             errors["base"] = "invalid_auth"
-        except ConnectError:
+        except (ConnectError, ConnectTimeout):
             errors["base"] = "cannot_connect"
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected exception")
