@@ -3,6 +3,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -14,7 +15,10 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entiti
     """Setup the sensor platform."""
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
-    devices = await coordinator.get_devices()
+    try:
+        devices = await coordinator.get_devices()
+    except Exception as ex:
+        raise PlatformNotReady("Error getting devices") from ex
 
     entities = []
     for lock in devices:

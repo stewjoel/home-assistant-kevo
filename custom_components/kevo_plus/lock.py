@@ -5,7 +5,7 @@ from aiokevoplus import KevoAuthError
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -20,7 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entiti
     try:
         devices = await coordinator.get_devices()
     except Exception as ex:
-        raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
+        raise PlatformNotReady("Error getting devices") from ex
 
     entities = []
     for lock in devices:
