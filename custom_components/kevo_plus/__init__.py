@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import DOMAIN
+from .const import CONF_LOCKS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,13 +33,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except KevoAuthError as auth_ex:
         raise ConfigEntryAuthFailed("Invalid credentials") from auth_ex
     except Exception as ex:
-        raise ConfigEntryNotReady("Error connecting to Kevo server: %s", ex) from ex
+        raise ConfigEntryNotReady("Error connecting to Kevo server") from ex
 
-    coordinator = KevoCoordinator(hass, client, entry)
+    locks = entry.data.get(CONF_LOCKS)
+    coordinator = KevoCoordinator(hass, client, entry, locks)
     try:
         await coordinator.get_devices()
     except Exception as ex:
-        raise ConfigEntryNotReady("Failed to get Kevo devices: %s", ex) from ex
+        raise ConfigEntryNotReady("Failed to get Kevo devices") from ex
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -62,10 +63,7 @@ class KevoCoordinator(DataUpdateCoordinator):
     """Kevo Data Coordinator."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        api: KevoApi,
-        entry: ConfigEntry,
+        self, hass: HomeAssistant, api: KevoApi, entry: ConfigEntry, locks: list[str]
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -79,13 +77,18 @@ class KevoCoordinator(DataUpdateCoordinator):
         self.entry = entry
         self._devices = None
         self._device_lock = asyncio.Lock()
+        self._selected_locks = locks
 
     async def get_devices(self) -> list:
         """Retrieve the devices associated with the coordinator."""
         async with self._device_lock:
             if self._devices is None:
                 try:
-                    self._devices = await self.api.get_locks()
+                    self._devices = [
+                        device
+                        for device in await self.api.get_locks()
+                        if device.lock_id in self._selected_locks
+                    ]
                 except KevoAuthError:
                     await self.entry.async_start_reauth(self.hass)
             return self._devices
