@@ -13,6 +13,7 @@ from .const import DOMAIN, MODEL
 
 
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
+    """Setup the lock platform."""
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
     try:
@@ -30,6 +31,8 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entiti
 
 
 class KevoLockEntity(LockEntity, CoordinatorEntity):
+    """Representation of a Kevo Lock."""
+
     def __init__(
         self, hass: HomeAssistant, name: str, device, coordinator: KevoCoordinator
     ) -> None:

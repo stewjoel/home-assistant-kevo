@@ -10,6 +10,7 @@ from .const import DOMAIN, MODEL
 
 
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
+    """Setup the sensor platform."""
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
     devices = await coordinator.get_devices()
@@ -30,6 +31,8 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entiti
 
 
 class KevoSensorEntity(SensorEntity, CoordinatorEntity):
+    """Representation of a Kevo Sensor Entity."""
+
     def __init__(
         self,
         hass: HomeAssistant,
