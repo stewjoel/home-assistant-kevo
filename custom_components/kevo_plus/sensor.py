@@ -59,8 +59,6 @@ class KevoSensorEntity(SensorEntity, CoordinatorEntity):
 
         self._attr_unique_id = device.lock_id + "_" + device_type
 
-        device._api.register_callback(self._update_data)
-
         if self._device_type == "battery_level":
             self._attr_native_value = device.battery_level
 
@@ -73,6 +71,9 @@ class KevoSensorEntity(SensorEntity, CoordinatorEntity):
         )
 
         super().__init__(coordinator)
+
+    async def async_added_to_hass(self) -> None:
+        self._device._api.register_callback(self._update_data)
 
     async def async_will_remove_from_hass(self) -> None:
         self._device._api.unregister_callback(self._update_data)

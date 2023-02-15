@@ -41,8 +41,6 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
         self._device = device
         self._coordinator: KevoCoordinator = coordinator
 
-        device._api.register_callback(self._update_data)
-
         self._attr_name = name
         self._attr_has_entity_name = True
 
@@ -73,6 +71,9 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
             await self._device.unlock()
         except KevoAuthError:
             await self._coordinator.entry.async_start_reauth(self._hass)
+
+    async def async_added_to_hass(self) -> None:
+        self._device._api.register_callback(self._update_data)
 
     async def async_will_remove_from_hass(self) -> None:
         self._device._api.unregister_callback(self._update_data)
