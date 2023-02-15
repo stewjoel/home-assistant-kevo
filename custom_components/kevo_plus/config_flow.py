@@ -11,6 +11,7 @@ import voluptuous as vol
 from aiokevoplus import KevoApi, KevoAuthError
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from httpx import ConnectError, ConnectTimeout
 
@@ -91,4 +92,53 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         self.data.update(user_input)
-        return self.async_create_entry(title=self.data[CONF_USERNAME], data=self.data)
+        return self.async_create_entry(
+            title=self.data[CONF_USERNAME], data=self.data, options=user_input
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler(config_entry)
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Options flow for picking devices."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        if self.config_entry.state != config_entries.ConfigEntryState.LOADED:
+            return self.async_abort(reason="unknown")
+
+        data = self.hass.data[DOMAIN][self.config_entry.entry_id]
+        try:
+            locks = {dev.lock_id: dev.name for dev in await data.get_all_devices()}
+        except Exception:
+            return self.async_abort(reason="invalid_auth")
+
+        # except AuthenticationError:
+        #    return self.async_abort(reason="invalid_auth")
+        # except BHyveError:
+        #    return self.async_abort(reason="cannot_connect")
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_LOCKS,
+                        default=self.config_entry.options.get(CONF_LOCKS),
+                    ): cv.multi_select(locks),
+                }
+            ),
+        )

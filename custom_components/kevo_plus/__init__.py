@@ -35,7 +35,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as ex:
         raise ConfigEntryNotReady("Error connecting to Kevo server") from ex
 
-    locks = entry.data.get(CONF_LOCKS)
+    locks = entry.options.get(CONF_LOCKS)
+    if locks is None:
+        locks = entry.data.get(CONF_LOCKS)
     coordinator = KevoCoordinator(hass, client, entry, locks)
     try:
         await coordinator.get_devices()
@@ -46,8 +48,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await coordinator.async_config_entry_first_refresh()
+    entry.async_on_unload(entry.add_update_listener(update_listener))
 
     return True
+
+
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload to update options."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -78,6 +86,10 @@ class KevoCoordinator(DataUpdateCoordinator):
         self._devices = None
         self._device_lock = asyncio.Lock()
         self._selected_locks = locks
+
+    async def get_all_devices(self) -> list:
+        """Retrieve all devices available in the api."""
+        return await self.api.get_locks()
 
     async def get_devices(self) -> list:
         """Retrieve the devices associated with the coordinator."""
