@@ -123,13 +123,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         data = self.hass.data[DOMAIN][self.config_entry.entry_id]
         try:
             locks = {dev.lock_id: dev.name for dev in await data.get_all_devices()}
-        except Exception:
+        except KevoAuthError:
             return self.async_abort(reason="invalid_auth")
+        except (ConnectError, ConnectTimeout):
+            return self.async_abort(reason="cannot_connect")
+        except Exception:
+            return self.async_abort(reason="unknown")
 
-        # except AuthenticationError:
-        #    return self.async_abort(reason="invalid_auth")
-        # except BHyveError:
-        #    return self.async_abort(reason="cannot_connect")
+        default_locks = self.config_entry.options.get(CONF_LOCKS)
+        if default_locks is None:
+            default_locks = self.config_entry.data.get(CONF_LOCKS)
 
         return self.async_show_form(
             step_id="init",
@@ -137,7 +140,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 {
                     vol.Required(
                         CONF_LOCKS,
-                        default=self.config_entry.options.get(CONF_LOCKS),
+                        default=default_locks,
                     ): cv.multi_select(locks),
                 }
             ),
