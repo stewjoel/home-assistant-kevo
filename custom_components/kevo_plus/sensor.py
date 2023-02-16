@@ -1,16 +1,24 @@
+"""Support for Kevo Plus lock sensors."""
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
-from .const import DOMAIN, MODEL
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from . import KevoCoordinator
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.components.sensor import SensorEntity
+from .const import DOMAIN, MODEL
 
 
-async def async_setup_entry(hass: HomeAssistant, config, add_entities):
+async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
+    """Setup the sensor platform."""
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
-    devices = await coordinator.get_devices()
+    try:
+        devices = await coordinator.get_devices()
+    except Exception as ex:
+        raise PlatformNotReady("Error getting devices") from ex
 
     entities = []
     for lock in devices:
@@ -28,7 +36,16 @@ async def async_setup_entry(hass: HomeAssistant, config, add_entities):
 
 
 class KevoSensorEntity(SensorEntity, CoordinatorEntity):
-    def __init__(self, hass, name, device, coordinator, device_type):
+    """Representation of a Kevo Sensor Entity."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        name: str,
+        device,
+        coordinator: KevoCoordinator,
+        device_type: str,
+    ) -> None:
         self._hass = hass
         self._device = device
         self._coordinator = coordinator
@@ -42,8 +59,6 @@ class KevoSensorEntity(SensorEntity, CoordinatorEntity):
 
         self._attr_unique_id = device.lock_id + "_" + device_type
 
-        device._api.register_callback(self._update_data)
-
         if self._device_type == "battery_level":
             self._attr_native_value = device.battery_level
 
@@ -56,6 +71,9 @@ class KevoSensorEntity(SensorEntity, CoordinatorEntity):
         )
 
         super().__init__(coordinator)
+
+    async def async_added_to_hass(self) -> None:
+        self._device._api.register_callback(self._update_data)
 
     async def async_will_remove_from_hass(self) -> None:
         self._device._api.unregister_callback(self._update_data)

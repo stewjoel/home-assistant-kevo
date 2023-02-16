@@ -1,21 +1,26 @@
+"""Support for Kevo Plus locks."""
 from typing import Any
+
+from aiokevoplus import KevoAuthError
 from homeassistant.components.lock import LockEntity
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from . import KevoCoordinator
-from homeassistant.core import HomeAssistant, callback
 from .const import DOMAIN, MODEL
-from aiokevoplus import KevoAuthError
 
 
-async def async_setup_entry(hass: HomeAssistant, config, add_entities):
+async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, add_entities):
+    """Setup the lock platform."""
     coordinator: KevoCoordinator = hass.data[DOMAIN][config.entry_id]
 
     try:
         devices = await coordinator.get_devices()
     except Exception as ex:
-        raise ConfigEntryNotReady("Timeout while connecting to Kevo servers") from ex
+        raise PlatformNotReady("Error getting devices") from ex
 
     entities = []
     for lock in devices:
@@ -27,15 +32,16 @@ async def async_setup_entry(hass: HomeAssistant, config, add_entities):
 
 
 class KevoLockEntity(LockEntity, CoordinatorEntity):
-    def __init__(self, hass, name, device, coordinator):
+    """Representation of a Kevo Lock."""
+
+    def __init__(
+        self, hass: HomeAssistant, name: str, device, coordinator: KevoCoordinator
+    ) -> None:
         self._hass = hass
         self._device = device
         self._coordinator: KevoCoordinator = coordinator
 
-        device._api.register_callback(self._update_data)
-
         self._attr_name = name
-        # self._attr_device_class = device_class
         self._attr_has_entity_name = True
 
         self._attr_unique_id = device.lock_id + "_lock"
@@ -65,6 +71,9 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
             await self._device.unlock()
         except KevoAuthError:
             await self._coordinator.entry.async_start_reauth(self._hass)
+
+    async def async_added_to_hass(self) -> None:
+        self._device._api.register_callback(self._update_data)
 
     async def async_will_remove_from_hass(self) -> None:
         self._device._api.unregister_callback(self._update_data)
