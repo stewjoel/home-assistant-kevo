@@ -1,7 +1,7 @@
 """Support for Kevo Plus locks."""
 from typing import Any
 
-from aiokevoplus import KevoAuthError
+from aiokevoplus import KevoAuthError, KevoLock
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -35,7 +35,11 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
     """Representation of a Kevo Lock."""
 
     def __init__(
-        self, hass: HomeAssistant, name: str, device, coordinator: KevoCoordinator
+        self,
+        hass: HomeAssistant,
+        name: str,
+        device: KevoLock,
+        coordinator: KevoCoordinator,
     ) -> None:
         self._hass = hass
         self._device = device
@@ -73,10 +77,7 @@ class KevoLockEntity(LockEntity, CoordinatorEntity):
             await self._coordinator.entry.async_start_reauth(self._hass)
 
     async def async_added_to_hass(self) -> None:
-        self._device._api.register_callback(self._update_data)
-
-    async def async_will_remove_from_hass(self) -> None:
-        self._device._api.unregister_callback(self._update_data)
+        self.async_on_remove(self._device.api.register_callback(self._update_data))
 
     @callback
     def _update_data(self, args):
