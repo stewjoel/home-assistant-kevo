@@ -15,7 +15,7 @@
 
 ## Note
 
-I have only tested this with Kwikset locks and it may not work with Baldwin or Weiser locks. If it does, please let me know!
+This has only been tested with Kwikset and Baldwin locks and it may not work with Weiser locks. If it does, please let me know!
 
 ## Kevo custom component setup
 
