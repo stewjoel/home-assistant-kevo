@@ -1,20 +1,19 @@
 """Config flow for Kevo Plus integration."""
-
 from __future__ import annotations
-
 import hashlib
 import logging
 import uuid
+import ssl
 from typing import Any
 
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from aiokevoplus import KevoApi, KevoAuthError
+from aiokevoplus import KevoApi, KevoAuthError, KevoError
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import config_validation as cv
-from httpx import ConnectError, ConnectTimeout
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import CONF_LOCKS, DOMAIN
 
@@ -32,9 +31,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self.data: dict[str, Any] = {}
-        self._api: KevoApi | None = None
-        self._locks: dict[str, str] = {}
+        self.data: dict = {}
+        self._api: KevoApi = None
+        self._locks = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -46,26 +45,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         errors = {}
-
         try:
             device_id = uuid.UUID(
                 bytes=hashlib.md5(user_input[CONF_PASSWORD].encode()).digest()
             )
-            self._api = KevoApi(device_id)
-            await self.hass.async_add_executor_job(
-                self._api.login,
-                user_input[CONF_USERNAME],
-                user_input[CONF_PASSWORD]
-            )
-            locks = await self.hass.async_add_executor_job(self._api.get_locks)
-            self._locks = {dev.lock_id: dev.name for dev in locks}
+            
+            def create_api():
+                """Create API client with SSL context in executor."""
+                ssl_context = ssl.create_default_context()
+                return KevoApi(device_id, ssl_context=ssl_context)
+            
+            self._api = await self.hass.async_add_executor_job(create_api)
+            await self._api.login(user_input[CONF_USERNAME], user_input[CONF_PASSWORD])
+            locks = await self._api.get_locks()
+            self._locks = {lock.lock_id: lock.name for lock in locks}
             self.data = user_input
             return await self.async_step_devices()
         except KevoAuthError:
             errors["base"] = "invalid_auth"
-        except (ConnectError, ConnectTimeout):
+        except KevoError:
             errors["base"] = "cannot_connect"
-        except Exception as ex:  # pylint: disable=broad-except
+        except Exception as ex:
             _LOGGER.exception("Unexpected exception: %s", ex)
             errors["base"] = "unknown"
 
@@ -73,15 +73,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_devices(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_devices(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle lock selection step."""
         if user_input is None:
             return self.async_show_form(
                 step_id="devices",
                 data_schema=vol.Schema({
-                    vol.Required(CONF_LOCKS, default=list(self._locks)): cv.multi_select(self._locks)
+                    vol.Required(
+                        CONF_LOCKS, default=list(self._locks)
+                    ): cv.multi_select(self._locks)
                 }),
             )
 
@@ -96,16 +96,22 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle reauthentication step."""
         return await self.async_step_user()
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler(config_entry)
+
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Options flow for Kevo Plus."""
+    """Options flow for picking devices."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
@@ -115,20 +121,24 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         data = self.hass.data[DOMAIN][self.config_entry.entry_id]
         try:
-            locks = await self.hass.async_add_executor_job(data.get_all_devices)
-            lock_dict = {dev.lock_id: dev.name for dev in locks}
+            locks = {dev.lock_id: dev.name for dev in await data.get_devices()}
         except KevoAuthError:
             return self.async_abort(reason="invalid_auth")
-        except (ConnectError, ConnectTimeout):
+        except KevoError:
             return self.async_abort(reason="cannot_connect")
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return self.async_abort(reason="unknown")
 
-        default_locks = self.config_entry.options.get(CONF_LOCKS) or self.config_entry.data.get(CONF_LOCKS, [])
+        default_locks = self.config_entry.options.get(CONF_LOCKS)
+        if default_locks is None:
+            default_locks = self.config_entry.data.get(CONF_LOCKS)
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required(CONF_LOCKS, default=default_locks): cv.multi_select(lock_dict),
+                vol.Required(
+                    CONF_LOCKS,
+                    default=default_locks,
+                ): cv.multi_select(locks),
             }),
         )

@@ -1,12 +1,14 @@
 """The Kevo Plus integration."""
 from __future__ import annotations
-
 import asyncio
 import hashlib
 import logging
 import uuid
+import ssl
+from datetime import timedelta
 
-from aiokevoplus import KevoApi, KevoAuthError
+from aiokevoplus import KevoApi, KevoLock, KevoError, KevoAuthError
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_PASSWORD,
@@ -24,40 +26,45 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.LOCK, Platform.SENSOR]
 
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Kevo Plus from a config entry."""
-
     hass.data.setdefault(DOMAIN, {})
+
     password = entry.data.get(CONF_PASSWORD)
     device_id = uuid.UUID(bytes=hashlib.md5(password.encode()).digest())
-    client = KevoApi(device_id)
+
+    def create_api_client():
+        """Create API client with SSL context in executor."""
+        ssl_context = ssl.create_default_context()
+        return KevoApi(device_id, ssl_context=ssl_context)
+
+    client = await hass.async_add_executor_job(create_api_client)
 
     try:
         await client.login(entry.data.get(CONF_USERNAME), password)
     except KevoAuthError as auth_ex:
         raise ConfigEntryAuthFailed("Invalid credentials") from auth_ex
-    except Exception as ex:
+    except KevoError as ex:
         raise ConfigEntryNotReady("Error connecting to Kevo server") from ex
 
-    locks = entry.options.get(CONF_LOCKS)
-    if locks is None:
-        locks = entry.data.get(CONF_LOCKS)
+    locks = entry.options.get(CONF_LOCKS) or entry.data.get(CONF_LOCKS)
+
     coordinator = KevoCoordinator(hass, client, entry, locks)
+
     try:
-        await coordinator.get_devices()
+        await coordinator.async_refresh()
     except Exception as ex:
         raise ConfigEntryNotReady("Failed to get Kevo devices") from ex
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await coordinator.async_config_entry_first_refresh()
+
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
     async def _async_disconnect(event: Event) -> None:
         """Disconnect from Websocket."""
-        await hass.data[DOMAIN][entry.entry_id].api.websocket_close()
+        await client.websocket_close()
 
     entry.async_on_unload(
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_disconnect)
@@ -65,11 +72,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
-
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload to update options."""
     await hass.config_entries.async_reload(entry.entry_id)
-
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
@@ -78,7 +83,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
-
 
 class KevoCoordinator(DataUpdateCoordinator):
     """Kevo Data Coordinator."""
@@ -90,33 +94,33 @@ class KevoCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            # Name of the data. For logging purposes.
             name="Kevo",
+            update_interval=timedelta(seconds=30),
         )
         self.api = api
-        self.hass = hass
         self.entry = entry
-        self._devices = None
-        self._device_lock = asyncio.Lock()
         self._selected_locks = locks
+        self._devices = {}
 
-    async def get_all_devices(self) -> list:
-        """Retrieve all devices available in the api."""
-        return await self.api.get_locks()
+    async def _async_update_data(self):
+        """Update data via library."""
+        try:
+            all_devices = await self.api.get_locks()
+            self._devices = {
+                device.lock_id: device
+                for device in all_devices
+                if device.lock_id in self._selected_locks
+            }
+            return self._devices
+        except KevoAuthError:
+            await self.entry.async_start_reauth(self.hass)
+            raise ConfigEntryNotReady("Authentication error")
+        except Exception as e:
+            _LOGGER.error(f"Error updating Kevo locks: {e}")
+            raise ConfigEntryNotReady(f"Error communicating with API: {e}")
 
     async def get_devices(self) -> list:
         """Retrieve the devices associated with the coordinator."""
-        async with self._device_lock:
-            if self._devices is None:
-                try:
-                    self._devices = [
-                        device
-                        for device in await self.api.get_locks()
-                        if device.lock_id in self._selected_locks
-                    ]
-                except KevoAuthError:
-                    await self.entry.async_start_reauth(self.hass)
-            return self._devices
-
-    async def _async_update_data(self):
-        await self.api.websocket_connect()
+        if not self._devices:
+            await self.async_refresh()
+        return list(self._devices.values())
